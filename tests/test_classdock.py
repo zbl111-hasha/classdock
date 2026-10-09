@@ -16,7 +16,7 @@ class ArchiveTests(unittest.TestCase):
         self.sync_patch = patch.object(sync, 'ROOT', self.root)
         self.root_patch.start()
         self.sync_patch.start()
-        self.cfg = {'desktop': str(self.root / 'desktop'), 'courses': [
+        self.cfg = {'desktop': str(self.root / 'desktop'), 'archive_layout': 'flat', 'courses': [
             {'id': 'a', 'name': '示例课程', 'folder': '示例课程', 'aliases': ['示例课程'], 'archive_enabled': True},
             {'id': 'b', 'name': '示例课程实验', 'folder': '实验', 'aliases': ['示例课程实验'], 'archive_enabled': False}],
             'lessons': [{'course': 'a', 'weekday': 5, 'weeks': [1]}, {'course': 'b', 'weekday': 5, 'weeks': [1]}]}
@@ -103,6 +103,33 @@ class ArchiveTests(unittest.TestCase):
             disabled = sync.archive_records(self.cfg, self.day, [record])
         writer.assert_not_called()
         self.assertEqual(disabled['archive'], [])
+
+    def test_lesson_folder_keeps_summary_transcript_and_original_together(self):
+        self.cfg['archive_layout'] = 'lesson_folders'
+        transcript = self.root / 'transcript.txt'
+        transcript.write_text(self.day+' 09:00:00 CST\n仅为虚构课堂转写。', encoding='utf-8')
+        record = {'title': '示例课程', 'minute_token': 'fictional-token', 'source_url': 'https://example.invalid/minutes/fictional',
+                  'artifacts': {'summary': '第一版虚构课堂总结。', 'transcript_file': str(transcript)}}
+        with patch.object(ca, 'write_pdf', side_effect=self.fake_pdf):
+            sync.archive_records(self.cfg, self.day, [record])
+            repeated = sync.archive_records(self.cfg, self.day, [record])
+            record['artifacts']['summary'] = '第二版虚构课堂总结。'
+            sync.archive_records(self.cfg, self.day, [record])
+        self.assertEqual(repeated['archive'][0]['status'], '已归档，跳过重复')
+        index = ca.read_json(self.root / '归档记录/index.json')
+        self.assertEqual(len(index), 2)
+        folders = [Path(row['lesson_folder']) for row in index]
+        self.assertEqual([p.name for p in folders], [self.day+'_09-00-00_示例课程', self.day+'_09-00-00_示例课程_02'])
+        for row, folder in zip(index, folders):
+            self.assertEqual(Path(row['pdf']), folder / '课堂总结.pdf')
+            self.assertEqual(Path(row['transcript']), folder / '课堂逐字稿.txt')
+            self.assertEqual(Path(row['original']).parent, folder / '原始资料')
+            self.assertEqual(Path(row['text']).parent, folder / '原始资料')
+            self.assertEqual(Path(row['transcript']).read_bytes(), transcript.read_bytes())
+        ca.month_bundle(self.cfg, '2026-01')
+        bundle = (self.root / '月度材料/2026-01/示例课程_材料与复习任务.md').read_text(encoding='utf-8')
+        self.assertIn('第一版虚构课堂总结', bundle)
+        self.assertIn('第二版虚构课堂总结', bundle)
 
 
 if __name__ == '__main__':

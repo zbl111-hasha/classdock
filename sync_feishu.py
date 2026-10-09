@@ -132,8 +132,11 @@ def archive_records(cfg, day, records):
                 row.update({k: v for k, v in info.items() if not k.startswith('_')})
                 if info['_transcript_path'] and not row.get('transcript'):
                     source = Path(info['_transcript_path'])
-                    transcript_stem = Path(row['pdf']).stem.replace('飞书AI总结', '逐字稿').replace('飞书逐字稿', '逐字稿')
-                    backup = Path(row['original']).with_name(transcript_stem+'.txt')
+                    if row.get('lesson_folder'):
+                        backup = Path(row['lesson_folder']) / '课堂逐字稿.txt'
+                    else:
+                        transcript_stem = Path(row['pdf']).stem.replace('飞书AI总结', '逐字稿').replace('飞书逐字稿', '逐字稿')
+                        backup = Path(row['original']).with_name(transcript_stem+'.txt')
                     if backup.exists() and backup.read_bytes() != source.read_bytes():
                         raise RuntimeError('逐字稿目标已存在且内容不同，请核对')
                     if not backup.exists():

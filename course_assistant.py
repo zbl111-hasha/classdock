@@ -119,10 +119,22 @@ def recording_start(day, body):
     return None
 
 
-def allocate_paths(folder, day, stem, suffix):
+def allocate_paths(folder, day, stem, suffix, layout='flat'):
     """An incremental suffix preserves distinct exports without overwriting."""
     serial = 1
+    if layout not in {'flat', 'lesson_folders'}:
+        raise ValueError('archive_layout 应为 lesson_folders 或 flat')
     while True:
+        if layout == 'lesson_folders':
+            session = re.sub(r'_(?:飞书AI总结|飞书逐字稿|课堂资料)$', '', stem)
+            session = session if serial == 1 else f'{session}_{serial:02d}'
+            lesson_folder = folder / '课堂归档' / day[:7] / session
+            if not lesson_folder.exists():
+                label = '课堂总结' if stem.endswith('_飞书AI总结') else ('课堂逐字稿' if stem.endswith('_飞书逐字稿') else '课堂资料')
+                return (lesson_folder / (label+'.pdf'), lesson_folder / '原始资料' / ('导出原文'+suffix),
+                        lesson_folder / '原始资料' / '提取文字.txt')
+            serial += 1
+            continue
         candidate = stem if serial == 1 else f'{stem}_{serial:02d}'
         paths = (folder / '课堂归档' / day[:7] / (candidate+'.pdf'),
                  folder / '原始资料' / day[:7] / (candidate+suffix),
@@ -226,7 +238,8 @@ def ingest(cfg, inbox, fallback, dry_run=False):
                 continue
             folder = course_folder(cfg, course)
             stem = archive_stem(course, day, body)
-            dest, original, text_path = allocate_paths(folder, day, stem, src.suffix.lower())
+            layout = cfg.get('archive_layout', 'lesson_folders')
+            dest, original, text_path = allocate_paths(folder, day, stem, src.suffix.lower(), layout)
             warnings = []
             eligible = candidates(cfg, day)
             if cid not in {l['course'] for l in eligible['lessons']}:
@@ -238,6 +251,8 @@ def ingest(cfg, inbox, fallback, dry_run=False):
             record = {'key': key, 'date': day, 'course': cid, 'course_name': course['name'], 'source': src.name,
                       'original': str(original), 'text': str(text_path), 'pdf': str(dest), 'sha256': digest,
                       'match_method': method, 'date_method': date_method, 'warnings': warnings}
+            if layout == 'lesson_folders':
+                record['lesson_folder'] = str(dest.parent)
             stamp = recording_start(day, body)
             if stamp:
                 record['recording_start'] = stamp
