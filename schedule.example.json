@@ -1,0 +1,42 @@
+{
+  "semester": "虚构示例学期",
+  "desktop": "C:/Users/YourName/Desktop",
+  "first_week_monday": null,
+  "date_overrides": {},
+  "courses": [
+    {
+      "id": "example",
+      "name": "示例课程",
+      "folder": "示例课程",
+      "aliases": [
+        "示例课程"
+      ],
+      "archive_enabled": true
+    },
+    {
+      "id": "other",
+      "name": "不归档示例课",
+      "folder": "不归档示例课",
+      "aliases": [
+        "不归档示例课"
+      ],
+      "archive_enabled": false
+    }
+  ],
+  "lessons": [
+    {
+      "course": "example",
+      "weekday": 5,
+      "periods": [
+        1,
+        2
+      ],
+      "week_ranges": [
+        [
+          1,
+          16
+        ]
+      ]
+    }
+  ]
+}
