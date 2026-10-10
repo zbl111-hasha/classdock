@@ -131,6 +131,26 @@ class ArchiveTests(unittest.TestCase):
         self.assertIn('第一版虚构课堂总结', bundle)
         self.assertIn('第二版虚构课堂总结', bundle)
 
+    def test_course_confirmation_applies_to_one_record_only(self):
+        self.cfg['archive_layout'] = 'lesson_folders'
+        self.cfg['confirmed_minutes'] = {'confirmed-fictional-token': {'course': 'a'}}
+        transcript = self.root / 'transcript.txt'
+        transcript.write_text(self.day+' 09:00:00 CST\n只有虚构教学主题，没有课程名。', encoding='utf-8')
+        record = {'title': '虚构教学主题', 'minute_token': 'confirmed-fictional-token', 'source_url': 'https://example.invalid/confirmed',
+                  'artifacts': {'summary': '虚构总结没有课程名。', 'transcript_file': str(transcript)}}
+        with patch.object(ca, 'write_pdf', side_effect=self.fake_pdf):
+            accepted = sync.archive_records(self.cfg, self.day, [record])
+            repeated = sync.archive_records(self.cfg, self.day, [record])
+            record['minute_token'] = 'unconfirmed-fictional-token'
+            unconfirmed = sync.archive_records(self.cfg, self.day, [record])
+        self.assertEqual(accepted['archive'][0]['status'], '已归档')
+        self.assertEqual(repeated['archive'][0]['status'], '已归档，跳过重复')
+        self.assertEqual(unconfirmed['archive'], [])
+        self.assertEqual(unconfirmed['deferred'][0]['status'], '待确认')
+        index = ca.read_json(self.root / '归档记录/index.json')
+        self.assertEqual(len(index), 1)
+        self.assertEqual(index[0]['course_match'], '用户确认课程')
+
 
 if __name__ == '__main__':
     unittest.main()

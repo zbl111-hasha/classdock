@@ -30,6 +30,8 @@ Copy-Item schedule.example.json local/schedule.json
 
 默认 `archive_layout: "lesson_folders"`，每次课堂录音建独立文件夹。若需要旧版的按月平铺布局，可设为 `"flat"`。切换只影响以后新增资料；已有文件及索引仍可读取，重复资料不会另建文件夹。
 
+遇到标题和正文都未写课程名的录音，先确认归属。可在私有配置的 `confirmed_minutes` 中，用该条妙记的 token 作键，设置 `{"course": "课程id"}`。确认只作用于这一条录音，不把某个教学主题变成所有录音通用的课程别名；没有确认的记录继续留待核对。
+
 `first_week_monday` 是教学第 1 周周一，可暂时留空；留空时程序明确报告教学周未确认，不据此猜测实际课程。调课在 `date_overrides` 中填写指定日期的 `weekday`（1 为周一，7 为周日）和可选 `week`。下学期替换本机配置即可。
 
 ## 连接飞书

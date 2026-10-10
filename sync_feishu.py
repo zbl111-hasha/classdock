@@ -55,7 +55,10 @@ def fetch_day(day, cfg):
         seen.add(minute)
         metadata = item.get('meta_data', {})
         title = item.get('title') or metadata.get('title') or item.get('display_info', '').split('\n')[0]
-        cid, _ = ca.identify(cfg, title, '')
+        confirmation = cfg.get('confirmed_minutes', {}).get(minute, {})
+        cid = confirmation.get('course')
+        if cid not in {c['id'] for c in cfg['courses']}:
+            cid, _ = ca.identify(cfg, title, '')
         if cid and not next(c for c in cfg['courses'] if c['id'] == cid).get('archive_enabled', True):
             continue
         snapshot = call_cli(['minutes', '+detail', '--minute-tokens', minute, '--summary', '--transcript', '--output-dir', './local/飞书原始资料/'+day])
@@ -91,7 +94,14 @@ def archive_records(cfg, day, records):
         if actual_day != day:
             deferred.append({'title': title, 'status': '待确认', 'reason': '录音日期缺失或与请求日期不同'})
             continue
-        cid, reason = ca.identify(cfg, title, summary or transcript)
+        confirmation = cfg.get('confirmed_minutes', {}).get(record.get('minute_token'), {})
+        if confirmation:
+            cid, reason = confirmation.get('course'), '用户确认课程'
+            if cid not in {c['id'] for c in cfg['courses']}:
+                deferred.append({'title': title, 'status': '待确认', 'reason': '确认课程映射无效，请核对配置'})
+                continue
+        else:
+            cid, reason = ca.identify(cfg, title, summary or transcript)
         if not cid:
             deferred.append({'title': title, 'status': '待确认', 'reason': reason})
             continue
@@ -115,7 +125,7 @@ def archive_records(cfg, day, records):
             src.write_text(body, encoding='utf-8')
         digest = hashlib.sha256(src.read_bytes()).hexdigest()
         links[filename] = {'feishu_url': url, 'recording_start': actual_day+' '+actual_time, 'minute_token': record['minute_token'],
-                           'document_type': kind, '_key': f'{day}:{cid}:{digest}', '_transcript_path': str(transcript_path) if transcript else None}
+                           'document_type': kind, 'course_match': reason, '_key': f'{day}:{cid}:{digest}', '_transcript_path': str(transcript_path) if transcript else None}
     # Only ingest files represented by this verified snapshot, excluding stale staging files.
     run_inbox = staging / ('batch-' + hashlib.sha256(json.dumps(sorted(links)).encode()).hexdigest()[:16])
     run_inbox.mkdir(parents=True, exist_ok=True)
