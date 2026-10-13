@@ -96,7 +96,7 @@ def archive_records(cfg, day, records):
             continue
         confirmation = cfg.get('confirmed_minutes', {}).get(record.get('minute_token'), {})
         if confirmation:
-            cid, reason = confirmation.get('course'), '用户确认课程'
+            cid, reason = confirmation.get('course'), confirmation.get('match_method', '用户确认课程')
             if cid not in {c['id'] for c in cfg['courses']}:
                 deferred.append({'title': title, 'status': '待确认', 'reason': '确认课程映射无效，请核对配置'})
                 continue
